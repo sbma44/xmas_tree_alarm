@@ -13,7 +13,7 @@ NODATA_TIMEOUT = int(os.getenv("NODATA_TIMEOUT", "300"))
 TEST_MODE = int(os.getenv("TEST_MODE", "0")) == 1
 
 # State tracking
-last_message_time = None
+last_message_time = time.time()
 alarm_triggered_nodata = False
 alarm_triggered_threshold = False
 current_value = None
@@ -30,16 +30,18 @@ def set_twinkly_color(color):
     except Exception as e:
         print(f"Error controlling Twinkly device: {e}")
 
-def test_color_cycle():
+def test_color_cycle(n=-1):
     try:
         discovered_device = xled.discover.discover()
         control = xled.ControlInterface(discovered_device.ip_address, discovered_device.hw_address)
         control.set_mode('color')
-        while True:
+        count = 0
+        while n < 0 or count < n:
             for c in [(255, 0, 0), (0, 255, 0), (0, 0, 255)]:
                 control.set_led_color_rgb(*c)
                 print(f"Set Twinkly to color: {c}")
                 time.sleep(0.5)
+            count += 1
     except Exception as e:
         print(f"Error controlling Twinkly device: {e}")
 
@@ -95,11 +97,20 @@ def on_message(client, userdata, msg):
 
 def monitor_nodata():
     """Monitor for no data condition and set the Twinkly to red if timeout occurs."""
-    global last_message_time
+    global last_message_time, alarm_triggered_nodata
     while True:
-        if last_message_time and (time.time() - last_message_time) > NODATA_TIMEOUT:
+        receiving_data = (time.time() - last_message_time) < NODATA_TIMEOUT
+
+        if not alarm_triggered_nodata and not receiving_data:
+            alarm_triggered_nodata = True
             print(f"No data received in specified timeout ({NODATA_TIMEOUT}s), setting Twinkly to red.")
             set_twinkly_color((255, 0, 0))  # Red color
+
+        elif alarm_triggered_nodata and receiving_data:
+            alarm_triggered_nodata = False
+            print(f"Data received, resuming normal operation.")
+            resume_twinkly_normal_operation()
+
         time.sleep(1)
 
 def main():
@@ -116,6 +127,10 @@ def main():
         print("Running in test mode, not connecting to MQTT server.")
         test_color_cycle()
         return
+
+    # announce initialization
+    test_color_cycle(1)
+    resume_twinkly_normal_operation()
 
     # Initialize MQTT client
     client = mqtt.Client()
