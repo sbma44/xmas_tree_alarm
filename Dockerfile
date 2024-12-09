@@ -21,7 +21,7 @@ COPY xled-develop.zip /tmp/xled-develop.zip
 RUN cd /tmp && \
     unzip xled-develop.zip && \
     cd xled-develop && \
-    python setup.py install \
+    python setup.py install && \
     cd .. && \
     rm -rf xled-develop.zip xled-develop
 
