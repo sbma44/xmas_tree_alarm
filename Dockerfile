@@ -10,18 +10,20 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libffi-dev \
     curl \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install MQTT client library and other dependencies
 RUN pip install paho-mqtt setuptools
 
 # Download and install xled library
-RUN curl -L https://github.com/scrool/xled/archive/refs/tags/v0.7.0.tar.gz -o xled.tar.gz \
-    && tar -xzf xled.tar.gz \
-    && cd xled-0.7.0 \
-    && python setup.py install \
-    && cd .. \
-    && rm -rf xled.tar.gz xled-0.7.0
+COPY xled-develop.zip /tmp/xled-develop.zip
+RUN cd /tmp && \
+    unzip xled-develop.zip && \
+    cd xled-develop && \
+    python setup.py install \
+    cd .. && \
+    rm -rf xled-develop.zip xled-develop
 
 # Copy the Python script into the container
 COPY monitor.py /app/monitor.py

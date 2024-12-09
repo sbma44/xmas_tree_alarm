@@ -25,7 +25,7 @@ def set_twinkly_color(color):
         discovered_device = xled.discover.discover()
         control = xled.ControlInterface(discovered_device.ip_address, discovered_device.hw_address)
         control.set_mode('color')
-        control.set_color(*color)
+        control.set_led_color_rgb(*color)
         print(f"Set Twinkly to color: {color}")
     except Exception as e:
         print(f"Error controlling Twinkly device: {e}")
@@ -37,7 +37,7 @@ def test_color_cycle():
         control.set_mode('color')
         while True:
             for c in [(255, 0, 0), (0, 255, 0), (0, 0, 255)]:
-                control.set_color(*c)
+                control.set_led_color_rgb(*c)
                 print(f"Set Twinkly to color: {c}")
                 time.sleep(0.5)
     except Exception as e:
@@ -63,21 +63,32 @@ def on_message(client, userdata, msg):
     try:
         current_value = float(payload)
 
-        if current_value > THRESHOLD:
-            if not alarm_triggered_threshold:
+        # mark time of each dip above threshold
+        # if below threshold, set to None
+        if current_value >= THRESHOLD:
+            if event_start_threshold is None:
                 event_start_threshold = time.time()
-
-            if time.time() - event_start_threshold > ALARM_PERIOD:
-                print(f"Threshold ({THRESHOLD}) exceeded for {ALARM_PERIOD}s, setting Twinkly to yellow.")
-
-                set_twinkly_color((255, 255, 0))  # Yellow color
-
-            alarm_triggered_threshold = True
         else:
-            if alarm_triggered_threshold:
-                print(f"Threshold below ({THRESHOLD}), resuming normal operation.")
-                alarm_triggered_threshold = False
-                resume_twinkly_normal_operation()
+            event_start_threshold = None
+
+        # if:
+        # - above threshold
+        # - alarm is not yet active and
+        # - time period has passed
+        # then trigger alarm
+        if (not alarm_triggered_threshold) and (event_start_threshold is not None) and (time.time() - event_start_threshold > ALARM_PERIOD):
+            print(f"Threshold ({THRESHOLD}) exceeded for {ALARM_PERIOD}s, setting Twinkly to yellow.")
+            alarm_triggered_threshold = True
+            set_twinkly_color((255, 255, 0))  # Yellow color
+
+        # if:
+        # - alarm is triggered
+        # - value is below threshold
+        # turn off alarm
+        if alarm_triggered_threshold and current_value < THRESHOLD:
+            print(f"Threshold below ({THRESHOLD}), resuming normal operation.")
+            alarm_triggered_threshold = False
+            resume_twinkly_normal_operation()
 
     except ValueError:
         print(f"Invalid payload: {payload}")
