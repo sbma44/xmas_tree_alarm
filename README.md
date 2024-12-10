@@ -4,3 +4,6 @@ Reads a value from an MQTT topic representing mm between sensor and water surfac
 
 ## Note on Docker deployment
 You'll need to use `host` network mode to get the xled device discovery functionality working. If this is a problem, it shouldn't be too hard to modify the code to specify the device IP directly, which will likely work over Docker's default `bridge` mode networking.
+
+## Note on xled
+The latest released version of `xled` is 0.7.0 which does not include support for `effect` mode, which is what my Twinkly seems to be using when I set it to run the animations I like. It's therefore necessary to install the HEAD version of the project from Github, which is included here as a zip (current as of this writing) for convenience.
