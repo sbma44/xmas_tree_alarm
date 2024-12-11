@@ -11,6 +11,7 @@ THRESHOLD = float(os.getenv("THRESHOLD", "60.0"))
 ALARM_PERIOD = int(os.getenv("ALARM_PERIOD", "90"))
 NODATA_TIMEOUT = int(os.getenv("NODATA_TIMEOUT", "300"))
 TEST_MODE = int(os.getenv("TEST_MODE", "0")) == 1
+RECONNECT_DELAY = 5  # Delay in seconds before attempting reconnection
 
 # State tracking
 last_message_time = time.time()
@@ -95,6 +96,15 @@ def on_message(client, userdata, msg):
     except ValueError:
         print(f"Invalid payload: {payload}")
 
+def on_disconnect(client, userdata, rc):
+    """Reconnect on disconnection."""
+    print(f"Disconnected from MQTT server with return code {rc}. Reconnecting in {RECONNECT_DELAY} seconds...")
+    time.sleep(RECONNECT_DELAY)
+    try:
+        client.reconnect()
+    except Exception as e:
+        print(f"Reconnection failed: {e}")
+
 def monitor_nodata():
     """Monitor for no data condition and set the Twinkly to red if timeout occurs."""
     global last_message_time, alarm_triggered_nodata
@@ -135,12 +145,15 @@ def main():
     # Initialize MQTT client
     client = mqtt.Client()
     client.on_message = on_message
+    client.on_disconnect = on_disconnect  # Register the disconnect handler
 
-    try:
-        client.connect(MQTT_SERVER)
-    except Exception as e:
-        print(f"Failed to connect to MQTT server: {e}")
-        return
+    while True:
+        try:
+            client.connect(MQTT_SERVER)
+            break
+        except Exception as e:
+            print(f"Failed to connect to MQTT server: {e}. Retrying in {RECONNECT_DELAY} seconds...")
+            time.sleep(RECONNECT_DELAY)
 
     client.subscribe(MQTT_TOPIC)
     threading.Thread(target=monitor_nodata, daemon=True).start()
